@@ -48,8 +48,10 @@ func TestAVLTree(t *testing.T) {
 			continue
 		}
 		insertedMap[v] = tree.Insert(v)
+		tree.validate(require)
 	}
 	require.Equal(nrEntries, tree.Len(), "Len(): After insertion")
+	tree.validate(require)
 
 	// Ensure that all entries can be found.
 	for k, v := range insertedMap {
@@ -63,6 +65,8 @@ func TestAVLTree(t *testing.T) {
 		inOrder = append(inOrder, k)
 	}
 	sort.Ints(inOrder)
+	require.Equal(inOrder[0], tree.First().Value, "First(), full")
+	require.Equal(inOrder[nrEntries-1], tree.Last().Value, "Last(), full")
 
 	iter = tree.Iterator(Forward)
 	visited := 0
@@ -87,13 +91,69 @@ func TestAVLTree(t *testing.T) {
 	// Test removal.
 	for i, idx := range rand.Perm(nrEntries) {
 		v := inOrder[idx]
-		n := tree.Find(v)
-		require.Equal(v, n.Value, "Find(): %v (Pre-remove)", v)
-		tree.Remove(n)
-		require.Equal(nrEntries-(i+1), tree.Len(), "Len(): %v (Post-remove)", v)
+		node := tree.Find(v)
+		require.Equal(v, node.Value, "Find(): %v (Pre-remove)", v)
 
-		n = tree.Find(v)
-		require.Nil(n, "Find(): %v (Post-remove)", v)
+		tree.Remove(node)
+		require.Equal(nrEntries-(i+1), tree.Len(), "Len(): %v (Post-remove)", v)
+		tree.validate(require)
+
+		node = tree.Find(v)
+		require.Nil(node, "Find(): %v (Post-remove)", v)
 	}
 	require.Equal(0, tree.Len(), "Len(): After removal")
+	require.Nil(tree.First(), "First(): After removal")
+	require.Nil(tree.Last(), "Last(): After removal")
+
+	// Refill the tree.
+	for _, v := range inOrder {
+		tree.Insert(v)
+	}
+
+	// Test that removing the node doesn't break the iterator.
+	iter = tree.Iterator(Forward)
+	visited = 0
+	for node := iter.Get(); node != nil; node = iter.Next() { // Omit calling First().
+		v, idx := node.Value.(int), visited
+		require.Equal(inOrder[idx], v, "Iterator: Forward[%v] (Pre-Remove)", idx)
+		require.Equal(inOrder[idx], tree.First().Value, "First() (Iterator, remove)")
+		visited++
+
+		tree.Remove(node)
+		tree.validate(require)
+	}
+	require.Equal(0, tree.Len(), "Len(): After iterating removal")
+}
+
+func (t *Tree) validate(require *require.Assertions) {
+	checkInvariants(require, t.root, nil)
+}
+
+func checkInvariants(require *require.Assertions, node, parent *Node) int {
+	if node == nil {
+		return 0
+	}
+
+	// Validate the parent pointer.
+	require.Equal(parent, node.parent)
+
+	// Validate that the balance factor is -1, 0, 1.
+	require.Condition(func() bool {
+		switch node.balance {
+		case -1, 0, 1:
+			return true
+		}
+		return false
+	})
+
+	// Recursively derive the height of the left and right sub-trees.
+	lHeight := checkInvariants(require, node.left, node)
+	rHeight := checkInvariants(require, node.right, node)
+
+	// Validate the AVL invariant and the balance factor.
+	require.Equal(int(node.balance), rHeight-lHeight)
+	if lHeight > rHeight {
+		return lHeight + 1
+	}
+	return rHeight + 1
 }
