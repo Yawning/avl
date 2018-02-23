@@ -233,6 +233,7 @@ func (t *Tree) Remove(node *Node) {
 	var parent *Node
 	var leftDeleted bool
 
+	t.size--
 	if node.left != nil && node.right != nil {
 		parent, leftDeleted = t.swapWithSuccessor(node)
 	} else {

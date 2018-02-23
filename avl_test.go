@@ -85,13 +85,15 @@ func TestAVLTree(t *testing.T) {
 	require.Equal(nrEntries, visited, "Iterator: Backward: Visited")
 
 	// Test removal.
-	for _, idx := range rand.Perm(nrEntries) {
+	for i, idx := range rand.Perm(nrEntries) {
 		v := inOrder[idx]
 		n := tree.Find(v)
 		require.Equal(v, n.Value, "Find(): %v (Pre-remove)", v)
 		tree.Remove(n)
+		require.Equal(nrEntries-(i+1), tree.Len(), "Len(): %v (Post-remove)", v)
 
 		n = tree.Find(v)
 		require.Nil(n, "Find(): %v (Post-remove)", v)
 	}
+	require.Equal(0, tree.Len(), "Len(): After removal")
 }
