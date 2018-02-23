@@ -60,19 +60,24 @@ func TestAVLTree(t *testing.T) {
 	}
 
 	// Test the forward/backward iterators.
-	inOrder := make([]int, 0, nrEntries)
+	fwdInOrder := make([]int, 0, nrEntries)
 	for k := range insertedMap {
-		inOrder = append(inOrder, k)
+		fwdInOrder = append(fwdInOrder, k)
 	}
-	sort.Ints(inOrder)
-	require.Equal(inOrder[0], tree.First().Value, "First(), full")
-	require.Equal(inOrder[nrEntries-1], tree.Last().Value, "Last(), full")
+	sort.Ints(fwdInOrder)
+	require.Equal(fwdInOrder[0], tree.First().Value, "First(), full")
+	require.Equal(fwdInOrder[nrEntries-1], tree.Last().Value, "Last(), full")
+
+	revInOrder := make([]int, 0, nrEntries)
+	for i := len(fwdInOrder) - 1; i >= 0; i-- {
+		revInOrder = append(revInOrder, fwdInOrder[i])
+	}
 
 	iter = tree.Iterator(Forward)
 	visited := 0
 	for node := iter.First(); node != nil; node = iter.Next() {
 		v, idx := node.Value.(int), visited
-		require.Equal(inOrder[visited], v, "Iterator: Forward[%v]", idx)
+		require.Equal(fwdInOrder[visited], v, "Iterator: Forward[%v]", idx)
 		require.Equal(node, iter.Get(), "Iterator: Forward[%v]: Get()", idx)
 		visited++
 	}
@@ -81,16 +86,29 @@ func TestAVLTree(t *testing.T) {
 	iter = tree.Iterator(Backward)
 	visited = 0
 	for node := iter.First(); node != nil; node = iter.Next() {
-		v, idx := node.Value.(int), nrEntries-1-visited
-		require.Equal(inOrder[idx], v, "Iterator: Backward[%v]", idx)
+		v, idx := node.Value.(int), visited
+		require.Equal(revInOrder[idx], v, "Iterator: Backward[%v]", idx)
 		require.Equal(node, iter.Get(), "Iterator: Backward[%v]: Get()", idx)
 		visited++
 	}
 	require.Equal(nrEntries, visited, "Iterator: Backward: Visited")
 
+	// Test the forward/backward ForEach.
+	forEachValues := make([]int, 0, nrEntries)
+	forEachFn := func(n *Node) bool {
+		forEachValues = append(forEachValues, n.Value.(int))
+		return true
+	}
+	tree.ForEach(Forward, forEachFn)
+	require.Equal(fwdInOrder, forEachValues, "ForEach: Forward")
+
+	forEachValues = make([]int, 0, nrEntries)
+	tree.ForEach(Backward, forEachFn)
+	require.Equal(revInOrder, forEachValues, "ForEach: Backward")
+
 	// Test removal.
-	for i, idx := range rand.Perm(nrEntries) {
-		v := inOrder[idx]
+	for i, idx := range rand.Perm(nrEntries) { // In random order.
+		v := fwdInOrder[idx]
 		node := tree.Find(v)
 		require.Equal(v, node.Value, "Find(): %v (Pre-remove)", v)
 
@@ -106,7 +124,7 @@ func TestAVLTree(t *testing.T) {
 	require.Nil(tree.Last(), "Last(): After removal")
 
 	// Refill the tree.
-	for _, v := range inOrder {
+	for _, v := range fwdInOrder {
 		tree.Insert(v)
 	}
 
@@ -115,8 +133,8 @@ func TestAVLTree(t *testing.T) {
 	visited = 0
 	for node := iter.Get(); node != nil; node = iter.Next() { // Omit calling First().
 		v, idx := node.Value.(int), visited
-		require.Equal(inOrder[idx], v, "Iterator: Forward[%v] (Pre-Remove)", idx)
-		require.Equal(inOrder[idx], tree.First().Value, "First() (Iterator, remove)")
+		require.Equal(fwdInOrder[idx], v, "Iterator: Forward[%v] (Pre-Remove)", idx)
+		require.Equal(fwdInOrder[idx], tree.First().Value, "First() (Iterator, remove)")
 		visited++
 
 		tree.Remove(node)

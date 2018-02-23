@@ -21,6 +21,7 @@ import "errors"
 
 var (
 	errNoCmpFn          = errors.New("avl: no comparison function")
+	errNotInTree        = errors.New("avl: element not in tree")
 	errInvalidDirection = errors.New("avl: invalid direction")
 )
 
@@ -36,10 +37,10 @@ type CompareFunc func(a, b interface{}) int
 type Direction int8
 
 const (
-	// Backward is backward (in-order).
+	// Backward is backwards in-order.
 	Backward Direction = -1
 
-	// Forward is forward (in-order).
+	// Forward is forwards in-order.
 	Forward Direction = 1
 )
 
@@ -53,7 +54,8 @@ type Iterator struct {
 }
 
 // First moves the iterator to the first Node in the Tree and returns the
-// first Node or nil iff the Tree is empty.
+// first Node or nil iff the Tree is empty.  Note that "first" in this context
+// is dependent on the direction specified when constructing the iterator.
 func (it *Iterator) First() *Node {
 	it.cur, it.next = it.tree.firstOrLastInOrder(-it.sign), nil
 	if it.cur != nil {
@@ -98,7 +100,7 @@ type Node struct {
 
 func (n *Node) reset() {
 	// Note: This deliberately leaves Value intact.
-	n.parent, n.left, n.right = nil, nil, nil
+	n.parent, n.left, n.right = n, nil, nil
 	n.balance = 0
 }
 
@@ -179,6 +181,7 @@ func (t *Tree) Find(v interface{}) *Node {
 	}
 
 	cur := t.root
+descendLoop:
 	for cur != nil {
 		cmp := t.cmpFn(v, cur.Value)
 		switch {
@@ -187,11 +190,11 @@ func (t *Tree) Find(v interface{}) *Node {
 		case cmp > 0:
 			cur = cur.right
 		default:
-			return cur
+			break descendLoop
 		}
 	}
 
-	return nil
+	return cur
 }
 
 // Insert inserts the value into the Tree, and returns the newly created Node
@@ -232,6 +235,10 @@ func (t *Tree) Insert(v interface{}) *Node {
 func (t *Tree) Remove(node *Node) {
 	var parent *Node
 	var leftDeleted bool
+
+	if node.parent == node {
+		panic(errNotInTree)
+	}
 
 	t.size--
 	if node.left != nil && node.right != nil {
@@ -289,6 +296,19 @@ func (t *Tree) Iterator(direction Direction) *Iterator {
 	return &Iterator{
 		tree: t,
 		sign: int8(direction),
+	}
+}
+
+// ForEach executes a function for each Node in the tree, visiting the nodes
+// in-order in the direction specified.  If the provided function returns
+// false, the iteration is stopped.  Modifying the Tree from within the
+// function is unsupprted except for removing the current Node.
+func (t *Tree) ForEach(direction Direction, fn func(*Node) bool) {
+	it := t.Iterator(direction)
+	for node := it.Get(); node != nil; node = it.Next() {
+		if !fn(node) {
+			return
+		}
 	}
 }
 
