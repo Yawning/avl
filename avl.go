@@ -37,10 +37,10 @@ type CompareFunc func(a, b interface{}) int
 type Direction int8
 
 const (
-	// Backward is backwards in-order.
+	// Backward is backward in-order.
 	Backward Direction = -1
 
-	// Forward is forwards in-order.
+	// Forward is forward in-order.
 	Forward Direction = 1
 )
 

@@ -18,19 +18,9 @@ import (
 func TestAVLTree(t *testing.T) {
 	require := require.New(t)
 
-	cmpInt := func(a, b interface{}) int {
-		aInt, bInt := a.(int), b.(int)
-		switch {
-		case aInt < bInt:
-			return -1
-		case aInt > bInt:
-			return 1
-		default:
-			return 0
-		}
-	}
-
-	tree := New(cmpInt)
+	tree := New(func(a, b interface{}) int {
+		return a.(int) - b.(int)
+	})
 	require.Equal(0, tree.Len(), "Len(): empty")
 	require.Nil(tree.First(), "First(): empty")
 	require.Nil(tree.Last(), "Last(): empty")
